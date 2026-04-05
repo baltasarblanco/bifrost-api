@@ -1,35 +1,62 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI (
-    title="Project Bifrost",
-    description="Protocolo Ronin - Puente de iNserción Comercial",
-    version = "Mark 2.0"
-)
+app = FastAPI(title="Project Bifrost", version="Mark 3.0")
 
-# 1. EL "STRUCT" ESCRICTO: Definimos cómo debe lucir una Armadura
 class Armadura(BaseModel):
     modelo: str
     nivel_energia: int
-    activa: bool = False # Si no nos mandan este dato, por defecto es False
+    activa: bool = False
 
-# 2. ENDPOINT DE LECTURA (GET)
+# 1. NUESTRA BASE DE DATOS FALSificada (En memoria RAM)
+banco_de_armaduras = {}
+
 @app.get("/")
 def root():
-    return {"sistema": "Pop!_OS", "estado": "En line"}
+    return {"sistema": "Pop!_OS", "estado": "En línea"}
 
-# 3. ENDPOINT DE ESCRITURA (POST)
-@app.post("/armadura/")
+# 2. CREATE (Guardar en el diccionario)
+@app.post("/armaduras/")
 def registrar_armadura(armadura: Armadura):
-    # Gracias a Pydanticd, si el codigo llega a esta linea.
-    # TENEMOS GARATIA de que nivel_energia es un integer válido. 
+    # Guardamos el objeto entero usando el nombre del modelo como llave (key)
+    banco_de_armaduras[armadura.modelo] = armadura
+    return {"mensaje": f"{armadura.modelo} almacenada en memoria central."}
 
-    if armadura.nivel_energia < 20:
-        return {
-            "alerta": f"CRÍTICO: La armadura {armadura.modelo} no tiene energía suficiente.",
-            "datos_recibidos": armadura          
-        }
-    return {
-        "mensaje": f"Armadura {armadura.modelo} autorizada y registrada.",
-        "datos_recibo": armadura
-    }
+# 3. READ ALL (Listar todo lo que tenemos)
+@app.get("/armaduras/")
+def listar_armaduras():
+    return {"inventario": banco_de_armaduras}
+
+# 4. READ ONE (Buscar una armadura específica por la URL)
+@app.get("/armaduras/{nombre_modelo}")
+def obtener_armadura(nombre_modelo: str):
+    # Verificamos si el modelo existe en nuestro banco
+    if nombre_modelo not in banco_de_armaduras:
+        # Si no existe, lanzamos un error 404 oficial
+        raise HTTPException(status_code=404, detail="Armadura no encontrada en los registros.")
+    
+    # Si existe, la devolvemos
+    return banco_de_armaduras[nombre_modelo]
+
+
+# 5. UPDATE (Actualizar una armadura existente)
+@app.put("/armaduras/{nombre_modelo}")
+def actualizar_armadura(nombre_modelo: str, armadura_actualizada: Armadura):
+    # Primero verificamos si existe
+    if nombre_modelo not in banco_de_armaduras:
+        raise HTTPException(status_code=404, detail="Armadura no encontrada para actualizar.")
+    
+    # Si existe, la pisamos con los datos nuevos
+    banco_de_armaduras[nombre_modelo] = armadura_actualizada
+    return {"mensaje": f"Sistemas de {nombre_modelo} actualizados correctamente."}
+
+
+# 6. DELETE (Eliminar una armadura)
+@app.delete("/armaduras/{nombre_modelo}")
+def eliminar_armadura(nombre_modelo: str):
+    if nombre_modelo not in banco_de_armaduras:
+        raise HTTPException(status_code=404, detail="Armadura no encontrada. Imposible eliminar.")
+    
+    # El comando 'del' de Python elimina la llave y su valor del diccionario
+    del banco_de_armaduras[nombre_modelo]
+    return {"mensaje": f"Armadura {nombre_modelo} eliminada del registro. Protocolo de autodestrucción completado."}
