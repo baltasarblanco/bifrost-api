@@ -34,3 +34,66 @@ Sistema B2B con autenticación JWT, tests >70%, contenerización Docker, manejo 
 ```bash
 git clone https://github.com/baltasarblanco/bifrost-api.git
 cd bifrost-api
+```
+### 2. Crear entorno virtual
+```bash
+python -m venv venv
+source venv/bin/activate   # Linux/macOS
+# o .\venv\Scripts\activate (Windows)
+```
+### 3. Instalar dependencias
+```bash
+pip install -r requirements.txt
+```
+### 4. Ejecutar el script CLI (lo que funciona hoy)
+```bash
+python cli.py
+```
+Verás una lista de posts desde una API pública.
+
+## 📁 Estructura actual (simple)
+```text
+bifrost-api/
+├── cli.py              # Script CLI funcional
+├── requirements.txt    # Dependencias (httpx, pytest, etc.)
+├── tests/              # (próximamente)
+└── README.md
+```
+
+## 🗺️ Roadmap (semanas restantes)
+
+| Semana | Entregable |
+|--------|------------|
+| 2 | FastAPI + Pydantic (en memoria) |
+| 3 | SQLite persistente |
+| 4 | PostgreSQL + SQLAlchemy + Alembic |
+| 5 | JWT authentication (fastapi-users) |
+| 6 | Pytest asíncrono + cobertura >70% |
+| 7 | Docker + docker‑compose + Makefile |
+| 8-9 | Lógica de reservas + timezones |
+| 10 | `SELECT FOR UPDATE` (bloqueo pesimista) |
+
+## 🛠️ Tecnologías (actuales y planificadas)
+Lenguaje: Python 3.12+
+
+Cliente HTTP: httpx (asíncrono)
+
+Web framework: FastAPI (próximamente)
+
+Validación: Pydantic V2
+
+Base de datos: SQLite → PostgreSQL
+
+ORM: SQLAlchemy 2.0 + Alembic
+
+Tests: Pytest + pytest-asyncio
+
+Contenerización: Docker + Compose
+
+Calidad: Ruff (linter)
+
+## 📫 Créditos y contacto
+Desarrollado por Baltasar Blanco como parte de su portafolio dual (Python táctico + Rust bare‑metal).
+
+📧 baltablanco9008@gmail.com
+📷 @baltasar_blanco
