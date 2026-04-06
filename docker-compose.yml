@@ -1,17 +1,22 @@
-version: '3.8'
 
 services:
   db:
     image: postgres:15-alpine
     container_name: ronin_postgres
     environment:
-      POSTGRES_USER: ronin
-      POSTGRES_PASSWORD: superpassword
-      POSTGRES_DB: bifrost_db
+      POSTGRES_USER: ${POSTGRES_USER}      # ← toma del .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Esto guarda los datos permanentemente en tu Pop!_OS
+      - postgres_data:/var/lib/postgresql/data
+    # Opcional pero recomendado: healthcheck para que espere a que DB esté lista
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   web:
     build: .
@@ -19,10 +24,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Le pasamos la URL de conexión a Python. Notá que dice "@db", ese es el nombre del contenedor de arriba.
-      - DATABASE_URL=postgresql://ronin:superpassword@db:5432/bifrost_db
+      - DATABASE_URL=${DATABASE_URL}      # ← toma del .env
     depends_on:
-      - db # Obligamos a que la base de datos arranque antes que la API
+      db:
+        condition: service_healthy        # ← mejor que solo depends_on
+    # También podés pasar otras variables como JWT_SECRET, etc.
 
 volumes:
   postgres_data:
