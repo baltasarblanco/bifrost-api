@@ -1,99 +1,118 @@
-# Bifrost API
+# 🐍 Bifrost API
 
-> *API comercial en construcción – Python, FastAPI, SQLite, Pytest*  
-> 🧭 **Estado actual:** Semana 1 de 10 · CLI funcional, próximo hito: FastAPI
+**Motor B2B de reservas en construcción** – Python, FastAPI, PostgreSQL, Docker
+
+> 🧭 Progreso: Semana 2/10 · ████░░░░░░░░░░░░░░░░ 20%
 
 ---
 
 ## 📦 Descripción
 
-Bifrost es una API de reservas para estudios de grabación musical.  
-Este proyecto es mi **portafolio de producto táctico** en Python, siguiendo un plan de 10 semanas con restricción de 18h/semana.
+Bifrost es el core de una API de reservas B2B para estudios de grabación musical.
+
+Este proyecto nace de una filosofía pragmática: mientras experimento con infraestructura de bajo nivel en Rust 🦀, utilizo Python y FastAPI para maximizar la velocidad de iteración y mejorar el *Time-to-Market* del producto.
 
 **Objetivo final (semana 10):**  
-Sistema B2B con autenticación JWT, tests >70%, contenerización Docker, manejo de zonas horarias y bloqueos pesimistas (`SELECT FOR UPDATE`).
+Sistema B2B robusto con autenticación JWT, tests >70%, orquestación completa con Docker, manejo estricto de zonas horarias (UTC) y prevención de race conditions mediante bloqueos pesimistas (`SELECT FOR UPDATE`).
 
 ---
 
-## ✅ Estado actual (semana 1)
+## 🏗️ Arquitectura del Sistema
+
+Orquestación local mediante Docker Compose aislando la API de la base de datos, con persistencia en volúmenes y gestión segura de secretos.
+
+---
+
+## ✅ Estado del Proyecto
 
 | Hito | Estado | Nota |
 |------|--------|------|
-| Script CLI con `httpx` | ✅ | Consume API pública, maneja excepciones, logs |
-| FastAPI + Swagger | ⏳ | Próximo paso |
-| Persistencia | ⏳ | SQLite en semana 3 |
-| Tests | ⏳ | Pytest en semana 6 |
+| CLI resiliente (`httpx`) | ✅ | Consume APIs, maneja excepciones y timeouts. |
+| FastAPI + Swagger | ✅ | Endpoints base documentados automáticamente. |
+| PostgreSQL + SQLAlchemy | ✅ | Motor de base de datos relacional configurado. |
+| Migraciones (Alembic) | ✅ | Control de versiones del esquema de datos. |
+| Infraestructura (Docker) | ✅ | Entorno 100% reproducible (Compose + Healthchecks). |
+| Identidad y Seguridad | ✅ | Tabla de usuarios y hashing de contraseñas con Bcrypt. |
+| Autenticación JWT | ⏳ | Próximo objetivo: Rutas protegidas y validación de tokens. |
+| Reservas + Timezones | ⏳ | Lógica de negocio principal. |
+| Concurrencia (Bloqueos) | ⏳ | Manejo de race conditions. |
+| Pytest asíncrono | ⏳ | Cobertura >70%. |
 
-> 🔥 **Último entregable:** CLI resiliente que consume `https://jsonplaceholder.typicode.com/posts` con timeouts y logs.
+🔥 **Estado actual:** *"Plomería" completada*. Base de datos blindada, secretos fuera del código (`.env`) y contenedores comunicándose por una red interna aislada.
 
 ---
 
-## 🚀 Cómo ejecutar el proyecto (ahora mismo)
+## 🚀 Cómo ejecutar el proyecto localmente
 
-### 1. Clonar y entrar
+Olvidate del *"funciona en mi máquina"*. El entorno está completamente contenerizado. Solo necesitás tener Docker instalado.
+
+### 1. Clonar el repositorio
+
 ```bash
 git clone https://github.com/baltasarblanco/bifrost-api.git
 cd bifrost-api
 ```
-### 2. Crear entorno virtual
-```bash
-python -m venv venv
-source venv/bin/activate   # Linux/macOS
-# o .\venv\Scripts\activate (Windows)
-```
-### 3. Instalar dependencias
-```bash
-pip install -r requirements.txt
-```
-### 4. Ejecutar el script CLI (lo que funciona hoy)
-```bash
-python cli.py
-```
-Verás una lista de posts desde una API pública.
 
-## 📁 Estructura actual (simple)
-```text
+### 2. Configurar variables de entorno
+El proyecto usa un archivo .env para inyectar credenciales de forma segura. Existe una plantilla lista para usar:
+
+```bash
+cp .env.example .env
+(Podés editar el .env si deseás cambiar el usuario o contraseña local de PostgreSQL).
+```
+
+### ###3. Levantar la infraestructura
+Construimos la imagen de la API y levantamos la red junto a la base de datos:
+
+```bash
+sudo docker compose up -d --build
+```
+Nota: Si tu usuario está en el grupo docker, podés omitir sudo.
+
+### 4. Construir las tablas (Migraciones)
+Una vez que el contenedor de PostgreSQL esté saludable, ejecutamos Alembic para crear los esquemas:
+
+```bash
+alembic upgrade head
+```
+
+### 5. Probar la API
+Ingresá a la documentación interactiva en tu navegador:
+👉 http://localhost:8000/docs
+
+## 📁 Estructura del Proyecto
+
+```plaintext
 bifrost-api/
-├── cli.py              # Script CLI funcional
-├── requirements.txt    # Dependencias (httpx, pytest, etc.)
-├── tests/              # (próximamente)
-└── README.md
+├── alembic/            # Historial de migraciones de la DB
+├── app/
+│   ├── main.py         # Inicialización de FastAPI y rutas
+│   ├── models.py       # Modelos relacionales de SQLAlchemy
+│   ├── schemas.py      # Esquemas de validación de Pydantic V2
+│   ├── security.py     # Motor criptográfico (Bcrypt / JWT)
+│   └── database.py     # Motor de conexión a PostgreSQL
+├── docs/               # Documentación y diagramas de arquitectura
+├── .env.example        # Plantilla de secretos y configuración
+├── docker-compose.yml  # Orquestación de servicios y red interna
+├── Dockerfile          # Receta de construcción de la API
+├── alembic.ini         # Configuración del gestor de migraciones
+└── requirements.txt    # Dependencias de Python
 ```
 
-## 🗺️ Roadmap (semanas restantes)
+## 🛠️ Stack Tecnológico
 
-| Semana | Entregable |
-|--------|------------|
-| 2 | FastAPI + Pydantic (en memoria) |
-| 3 | SQLite persistente |
-| 4 | PostgreSQL + SQLAlchemy + Alembic |
-| 5 | JWT authentication (fastapi-users) |
-| 6 | Pytest asíncrono + cobertura >70% |
-| 7 | Docker + docker‑compose + Makefile |
-| 8-9 | Lógica de reservas + timezones |
-| 10 | `SELECT FOR UPDATE` (bloqueo pesimista) |
-
-## 🛠️ Tecnologías (actuales y planificadas)
-Lenguaje: Python 3.12+
-
-Cliente HTTP: httpx (asíncrono)
-
-Web framework: FastAPI (próximamente)
-
-Validación: Pydantic V2
-
-Base de datos: SQLite → PostgreSQL
-
-ORM: SQLAlchemy 2.0 + Alembic
-
-Tests: Pytest + pytest-asyncio
-
-Contenerización: Docker + Compose
-
-Calidad: Ruff (linter)
+- **Lenguaje:** Python 3.12+
+- **Framework Web:** FastAPI
+- **Validación de Datos:** Pydantic V2
+- **Base de Datos:** PostgreSQL 15
+- **ORM & Migraciones:** SQLAlchemy 2.0 + Alembic
+- **Seguridad:** Passlib (Bcrypt) + PyJWT
+- **Infraestructura:** Docker + Docker Compose
 
 ## 📫 Créditos y contacto
-Desarrollado por Baltasar Blanco como parte de su portafolio dual (Python táctico + Rust bare‑metal).
 
-📧 baltablanco9008@gmail.com
-📷 @baltasar_blanco
+Desarrollado por **Baltasar Blanco** como parte de un portafolio dual (Python pragmático + Rust de alto rendimiento).
+
+- 📧 baltablanco9008@gmail.com
+- 💼 [LinkedIn](https://linkedin.com/in/tu-perfil) *(Reemplazá por tu link real si querés)*
+- 📷 @baltasar_blanco
