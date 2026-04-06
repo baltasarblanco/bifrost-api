@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ronin_postgres
+    environment:
+      POSTGRES_USER: ronin
+      POSTGRES_PASSWORD: superpassword
+      POSTGRES_DB: bifrost_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Esto guarda los datos permanentemente en tu Pop!_OS
+
+  web:
+    build: .
+    container_name: ronin_fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      # Le pasamos la URL de conexión a Python. Notá que dice "@db", ese es el nombre del contenedor de arriba.
+      - DATABASE_URL=postgresql://ronin:superpassword@db:5432/bifrost_db
+    depends_on:
+      - db # Obligamos a que la base de datos arranque antes que la API
+
+volumes:
+  postgres_data:

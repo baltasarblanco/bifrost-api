@@ -8,7 +8,7 @@ from .database import SessionLocal, engine
 
 # 1. INICIALIZAR EL DISCO DURO
 # Esta línea le dice a SQLAlchemy: "Creá el archivo bifrost.db y todas las tablas si no existen"
-models.Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Project Bifrost", version="Mark 4.0 (Persistente)")
 
