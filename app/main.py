@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends , status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from . import models, schemas, security
 
 # Importamos las piezas que creaste en el Día 5
 from . import models
@@ -104,3 +105,24 @@ def eliminar_armadura(nombre_modelo: str, db: Session = Depends(get_db)):
     db.commit()
     
     return {"mensaje": f"Armadura {nombre_modelo} eliminada permanentemente del archivo."}
+
+@app.post("/usuarios/", response_model=schemas.UsuarioResponse, status_code=status.HTTP_201_CREATED)
+def crear_usuario(usuario: schemas.UsuarioCreate, db: Session = Depends(get_db)):
+    
+    # 1. Verificar si el correo ya existe en la base de datos
+    db_user = db.query(models.UsuarioDB).filter(models.UsuarioDB.email == usuario.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="El email ya está registrado")
+    
+    # 2. Hashear la contraseña usando tu módulo security
+    hashed_pw = security.get_password_hash(usuario.password)
+    
+    # 3. Crear el modelo de base de datos con la contraseña encriptada
+    nuevo_usuario = models.UsuarioDB(email=usuario.email, hashed_password=hashed_pw)
+    
+    # 4. Impactar en PostgreSQL
+    db.add(nuevo_usuario)
+    db.commit()
+    db.refresh(nuevo_usuario)
+    
+    return nuevo_usuario

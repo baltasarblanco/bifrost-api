@@ -31,11 +31,22 @@ target_metadata = Base.metadata
 
 # 3. Le inyectamos la conexión a tu base de datos local
 # (Usamos localhost porque vas a ejecutar Alembic desde tu sistema operativo, no desde adentro de Docker)
-config.set_main_option(
-    "sqlalchemy.url", 
-    "postgresql://ronin:superpassword@localhost:5432/bifrost_db"
-)
+import os
+from dotenv import load_dotenv
 
+# 1. Le decimos que cargue los secretos del archivo .env
+load_dotenv()
+
+# 2. Armamos la URL dinámicamente
+DB_USER = os.getenv("POSTGRES_USER")
+DB_PASS = os.getenv("POSTGRES_PASSWORD")
+DB_NAME = os.getenv("POSTGRES_DB")
+
+# NOTA: Usamos "localhost" en vez de "db" porque Alembic lo estás ejecutando 
+# desde tu Pop!_OS, no desde adentro de la red de Docker.
+database_url = f"postgresql://{DB_USER}:{DB_PASS}@localhost:5432/{DB_NAME}"
+
+config.set_main_option("sqlalchemy.url", database_url)
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
