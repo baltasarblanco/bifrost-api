@@ -1,4 +1,25 @@
+# Entorno Virtual
 venv/
+env/
+.venv/
+
+# Python Cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# --- NUEVOS REFUERZOS PARA SEMANA 6 ---
+# Testing y Cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+.hypothesis/
+
+# Base de Datos (No queremos subir tu base local con tus usuarios de prueba)
+*.db
+*.sqlite3
+
+# Secretos y Configuración
 .env
