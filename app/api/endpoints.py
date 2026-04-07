@@ -12,6 +12,7 @@ from app.core.security import (
 )
 from app.schemas.token import Token, TokenPayload
 from app.api.dependencies import get_current_user
+from app import models, schemas
 
 # Importaciones de Base de Datos y Modelos
 from app.database import (
@@ -100,3 +101,58 @@ def ruta_super_secreta(current_user: TokenPayload = Depends(get_current_user)):
         "mensaje": "¡Bienvenido a la zona VIP de Bifrost!",
         "usuario_logueado": current_user.sub,
     }
+
+
+@router.post("/reservas/", response_model=schemas.ReservaResponse, status_code=status.HTTP_201_CREATED)
+def crear_reserva(
+    reserva_in: schemas.ReservaCreate,
+    db: Session = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user)  # <-- Usamos tu patovica real
+):
+    """
+    Crea una nueva reserva aplicando bloqueos pesimistas para evitar overbooking.
+    """
+    # 0. BUSCAMOS AL USUARIO EN LA DB (Para obtener su ID)
+    usuario = db.query(models.UsuarioDB).filter(models.UsuarioDB.email == current_user.sub).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en la base de datos.")
+
+    # 1. BLOQUEO PESIMISTA: Buscamos la armadura y bloqueamos su fila.
+    armadura = db.query(models.ArmaduraDB).filter(
+        models.ArmaduraDB.modelo == reserva_in.armadura_modelo
+    ).with_for_update().first()
+
+    if not armadura:
+        raise HTTPException(status_code=404, detail="Armadura no encontrada.")
+
+    if not armadura.activa:
+        raise HTTPException(status_code=400, detail="La armadura se encuentra fuera de servicio.")
+
+    # 2. DETECCIÓN DE COLISIONES TEMPORALES (Overbooking)
+    colision = db.query(models.ReservaDB).filter(
+        models.ReservaDB.armadura_modelo == reserva_in.armadura_modelo,
+        models.ReservaDB.estado == "activa",
+        models.ReservaDB.fecha_inicio < reserva_in.fecha_fin,
+        models.ReservaDB.fecha_fin > reserva_in.fecha_inicio
+    ).first()
+
+    if colision:
+        raise HTTPException(
+            status_code=409,
+            detail="Operación rechazada: La armadura ya está reservada para ese rango horario."
+        )
+
+    # 3. PERSISTENCIA
+    nueva_reserva = models.ReservaDB(
+        usuario_id=usuario.id,  # <-- Usamos el ID numérico que requiere la tabla
+        armadura_modelo=reserva_in.armadura_modelo,
+        fecha_inicio=reserva_in.fecha_inicio,
+        fecha_fin=reserva_in.fecha_fin,
+        estado="activa"
+    )
+    
+    db.add(nueva_reserva)
+    db.commit()
+    db.refresh(nueva_reserva)
+
+    return nueva_reserva
