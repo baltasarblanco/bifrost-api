@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from pydantic import ConfigDict, model_validator
+from .token import Token as Token, TokenPayload as TokenPayload
 
 
 # Lo que EXIGIMOS del cliente (El body del POST)
@@ -58,4 +59,3 @@ class ArmaduraResponse(ArmaduraBase):
     model_config = ConfigDict(from_attributes=True)
 
 # 🆕 Importamos los esquemas de seguridad desde el archivo token.py
-from .token import Token, TokenPayload

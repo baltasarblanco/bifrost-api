@@ -252,7 +252,7 @@ def listar_disponibilidad_actual(db: Session = Depends(get_db)):
     libres = db.query(models.ArmaduraDB).filter(
         models.ArmaduraDB.modelo.notin_(lista_modelos_ocupados),
         models.ArmaduraDB.activa,
-        models.ArmaduraDB.is_deleted == False  # <-- El filtro de seguridad
+        models.ArmaduraDB.is_deleted.is_(False)
     ).all()
     
     return libres
