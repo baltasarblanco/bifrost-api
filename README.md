@@ -56,6 +56,21 @@ API stateless con JWT. Separación estricta de responsabilidades.
 
 ---
 
+## 🛠️ Estrategia de Calidad y Resiliencia
+
+El proyecto implementa un pipeline de calidad basado en tres pilares:
+
+1. **Pruebas de Integración con Aislamiento (Pytest):**  
+   Se utiliza el patrón de *Dependency Injection* para sustituir la base de datos de producción por instancias efímeras en RAM durante los tests, garantizando idempotencia en cada ejecución.
+
+2. **Auditoría Estática (Ruff):**  
+   El código es analizado por un motor escrito en Rust que verifica el cumplimiento de +700 reglas de estilo y seguridad (PEP-8, vulnerabilidades comunes, optimización de imports).
+
+3. **Validación de Concurrencia:**  
+   Pruebas de estrés verifican que los bloqueos pesimistas (`FOR UPDATE`) gestionen correctamente las colisiones de datos sin generar *deadlocks* en el motor PostgreSQL.
+
+---
+
 ## 🧪 Métricas y pruebas (lo que importa)
 
 ### Tests y cobertura
