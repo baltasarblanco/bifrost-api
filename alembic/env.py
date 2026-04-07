@@ -18,21 +18,21 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-import os
-import sys
+import os  # noqa: E402
+import sys  # noqa: E402
 
 # 1. Le decimos a Alembic dónde está nuestra carpeta 'app'
 sys.path.append(os.getcwd())
 
-from app.models import Base
+from app.models import Base  # noqa: E402
 
 # 2. Le pasamos tus modelos para que los analice
 target_metadata = Base.metadata
 
 # 3. Le inyectamos la conexión a tu base de datos local
 # (Usamos localhost porque vas a ejecutar Alembic desde tu sistema operativo, no desde adentro de Docker)
-import os
-from dotenv import load_dotenv
+import os  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 # 1. Le decimos que cargue los secretos del archivo .env
 load_dotenv()
@@ -42,7 +42,7 @@ DB_USER = os.getenv("POSTGRES_USER")
 DB_PASS = os.getenv("POSTGRES_PASSWORD")
 DB_NAME = os.getenv("POSTGRES_DB")
 
-# NOTA: Usamos "localhost" en vez de "db" porque Alembic lo estás ejecutando 
+# NOTA: Usamos "localhost" en vez de "db" porque Alembic lo estás ejecutando
 # desde tu Pop!_OS, no desde adentro de la red de Docker.
 database_url = f"postgresql://{DB_USER}:{DB_PASS}@localhost:5432/{DB_NAME}"
 
@@ -91,9 +91,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

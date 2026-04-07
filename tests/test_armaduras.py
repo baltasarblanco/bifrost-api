@@ -3,7 +3,7 @@ def test_flujo_completo_armadura(client):
     nueva_armadura = {"modelo": "Mark 85", "nivel_energia": 100, "activa": True}
     res_post = client.post("/armaduras/", json=nueva_armadura)
     assert res_post.status_code == 200
-    
+
     # 2. LEER (GET ALL)
     res_get_all = client.get("/armaduras/")
     assert res_get_all.status_code == 200

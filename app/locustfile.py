@@ -1,10 +1,11 @@
 from locust import HttpUser, task, between
 
+
 class UsuarioBifrost(HttpUser):
     # Simula el tiempo que tarda un humano real en leer la pantalla (entre 1 y 3 segundos)
     wait_time = between(1, 3)
 
-    @task(3) # El peso "3" significa que esta tarea se ejecuta el triple de veces
+    @task(3)  # El peso "3" significa que esta tarea se ejecuta el triple de veces
     def chequear_telemetria(self):
         """Simula a un usuario entrando a la página principal"""
         self.client.get("/")
