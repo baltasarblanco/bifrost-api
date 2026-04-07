@@ -13,9 +13,10 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool, # Evita que se cierre la conexión entre hilos de test
+    poolclass=StaticPool,  # Evita que se cierre la conexión entre hilos de test
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 # 2. FIXTURE: Crea las tablas al empezar y las borra al terminar
 @pytest.fixture(scope="session", autouse=True)
@@ -23,6 +24,7 @@ def setup_database():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
 
 # 3. FIXTURE: Nos da una sesión de DB limpia para cada test
 @pytest.fixture
@@ -35,6 +37,7 @@ def db_session():
     transaction.rollback()
     connection.close()
 
+
 # 4. FIXTURE: Sobrescribe la dependencia get_db en la app de FastAPI
 @pytest.fixture
 def client(db_session):
@@ -43,7 +46,7 @@ def client(db_session):
             yield db_session
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
