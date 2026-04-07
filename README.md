@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Estado](https://img.shields.io/badge/Semana-8%2F10-blue?style=flat-square&logo=progress)
+![Estado](https://img.shields.io/badge/Semana-9%2F10-brightgreen?style=flat-square&logo=progress)
 ![Coverage](https://img.shields.io/badge/Cobertura-90%25-success?style=flat-square&logo=pytest)
 ![RPS](https://img.shields.io/badge/RPS-1250-orange?style=flat-square&logo=locust)
 ![Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000?style=flat-square&logo=python)
@@ -13,7 +13,7 @@
 
 ## 📊 Estado actual
 
-> **Semana 8/10** · ████████████████░░░░ **80%**  
+> **Semana 9/10** · ██████████████████░░ **90%**  
 > **Cobertura de tests:** 90% (`pytest --cov`)  
 > **Rendimiento:** 1250 RPS (Locust, 8 vCPUs / 16GB RAM)  
 > **Linter/Formatter:** Ruff (PEP-8, +700 reglas)
@@ -23,7 +23,8 @@
 ## 📦 Descripción (sin humo)
 
 Motor transaccional B2B para gestión de reservas con protección anti‑overbooking mediante `SELECT FOR UPDATE`.  
-API stateless con JWT. Separación estricta de responsabilidades.
+API stateless con JWT y **diferenciación de roles (Usuario/Admin)**.  
+Separación estricta de responsabilidades + **Soft Delete** e integridad referencial.
 
 ---
 
@@ -35,23 +36,27 @@ API stateless con JWT. Separación estricta de responsabilidades.
 | `app/core`    | Seguridad, JWT, configuración |
 | `app/models`  | SQLAlchemy 2.0 (modelos relacionales) |
 | `app/schemas` | Pydantic V2 (validación de datos) |
-| `alembic`     | Migraciones de base de datos |
+| `alembic`     | Migraciones de base de datos (versionadas) |
 | `tests`       | Tests de integración con DB en memoria RAM |
 
 ---
 
-## ✅ Hitos cumplidos / pendientes
+## ✅ Hitos cumplidos / pendientes (Semana 9)
 
 | Ítem                                      | Estado |
 |-------------------------------------------|--------|
 | SQLAlchemy + PostgreSQL                   | ✅     |
 | Bcrypt hashing (salting automático)       | ✅     |
-| JWT stateless                             | ✅     |
+| JWT stateless + roles (User/Admin)        | ✅     |
 | Arquitectura modular (Clean Architecture) | ✅     |
 | Pytest coverage 90%                       | ✅     |
 | Ruff linting & formatting                 | ✅     |
 | Motor de reservas (colisiones O(1))       | ✅     |
 | Pessimistic locking (`FOR UPDATE`)        | ✅     |
+| **Migraciones Alembic (versionadas)**     | ✅     |
+| **PostgreSQL en Docker (compose)**        | ✅     |
+| **Soft Delete + integridad referencial**  | ✅     |
+| **Paginación (offset/limit)**             | ✅     |
 | CI/CD con GitHub Actions                  | ⏳     |
 
 ---
