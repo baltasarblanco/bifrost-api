@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # 1. EL DISCO DURO FLEXIBLE
 # Leemos la URL desde las variables de entorno (inyectadas por Docker)
 # Si no la encuentra (ej. si corrés el script sin Docker), usa SQLite de respaldo
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bifrost.db")
+SQLALCHEMY_DATABASE_URL = "postgresql://ronin:helados_fuente@localhost:5432/bifrost_db"
 
 # 2. EL MOTOR
 # Postgres no necesita "check_same_thread", así que condicionamos la creación

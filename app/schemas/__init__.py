@@ -56,3 +56,6 @@ class ArmaduraResponse(ArmaduraBase):
     
     # Esto es vital para que Pydantic pueda leer los datos directamente de SQLAlchemy
     model_config = ConfigDict(from_attributes=True)
+
+# 🆕 Importamos los esquemas de seguridad desde el archivo token.py
+from .token import Token, TokenPayload
