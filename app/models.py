@@ -15,16 +15,19 @@ class ArmaduraDB(Base):
     )  # No puede haber dos armaduras con el mismo modelo
     nivel_energia = Column(Integer)
     activa = Column(Boolean, default=False)
+    # 🆕 El interruptor de borrado lógico:
+    is_deleted = Column(Boolean, default=False)
 
 
 class UsuarioDB(Base):
     __tablename__ = "usuarios"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)  # ¡Acá va el hash, no la clave real!
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-
+    # 🆕 Nueva columna para el mando:
+    is_admin = Column(Boolean, default=False)
 
 class ReservaDB(Base):
     __tablename__ = "reservas"

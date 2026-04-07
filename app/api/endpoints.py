@@ -231,7 +231,6 @@ def obtener_todas_las_reservas(
 # 4. ADMINISTRACIÓN Y DISPONIBILIDAD
 # ==========================================
 
-
 @router.get("/armaduras/disponibles", response_model=List[schemas.ArmaduraResponse])
 def listar_disponibilidad_actual(db: Session = Depends(get_db)):
     """
@@ -249,10 +248,44 @@ def listar_disponibilidad_actual(db: Session = Depends(get_db)):
     # Convertimos la lista de tuplas de SQLAlchemy en una lista simple de strings
     lista_modelos_ocupados = [r[0] for r in ocupadas]
 
-    # 2. Filtramos la tabla de armaduras: que no estén en la lista de ocupadas y que estén de alta
+    # 2. Filtramos armaduras: que no estén ocupadas, estén activas y NO estén borradas
     libres = db.query(models.ArmaduraDB).filter(
         models.ArmaduraDB.modelo.notin_(lista_modelos_ocupados),
-        models.ArmaduraDB.activa
+        models.ArmaduraDB.activa,
+        models.ArmaduraDB.is_deleted == False  # <-- El filtro de seguridad
     ).all()
     
     return libres
+
+# --- Agregá esto arriba de tus endpoints ---
+
+# Esta versión BUSCA al usuario en la DB para ver si es Admin
+async def get_current_admin_user(
+    current_user_payload: schemas.TokenPayload = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.UsuarioDB).filter(models.UsuarioDB.email == current_user_payload.sub).first()
+    if not user or not user.is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado.")
+    return user
+# -------------------------------------------
+
+@router.delete("/admin/armaduras/{armadura_id}", status_code=204)
+def borrar_armadura(
+    armadura_id: int,
+    db: Session = Depends(get_db),
+    current_admin: models.UsuarioDB = Depends(get_current_admin_user)
+):
+    """
+    SOFT DELETE: Marca una armadura como fuera de servicio.
+    Preserva el historial pero la quita de la vista del usuario.
+    """
+    armadura = db.query(models.ArmaduraDB).filter(models.ArmaduraDB.id == armadura_id).first()
+    
+    if not armadura:
+        raise HTTPException(status_code=404, detail="Esa armadura no existe en el hangar.")
+
+    armadura.is_deleted = True
+    db.commit()
+    
+    return None # 204 No Content no devuelve cuerpo
