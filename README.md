@@ -1,118 +1,118 @@
-# 🐍 Bifrost API
+cat > README.md << 'EOF'
+# 🐍 Bifrost APIMotor
 
-**Motor B2B de reservas en construcción** – Python, FastAPI, PostgreSQL, Docker
+**B2B de gestión de activos y reservas** – Desarrollado con Python, FastAPI y PostgreSQL.
 
-> 🧭 Progreso: Semana 2/10 · ████░░░░░░░░░░░░░░░░ 20%
-
----
-
-## 📦 Descripción
-
-Bifrost es el core de una API de reservas B2B para estudios de grabación musical.
-
-Este proyecto nace de una filosofía pragmática: mientras experimento con infraestructura de bajo nivel en Rust 🦀, utilizo Python y FastAPI para maximizar la velocidad de iteración y mejorar el *Time-to-Market* del producto.
-
-**Objetivo final (semana 10):**  
-Sistema B2B robusto con autenticación JWT, tests >70%, orquestación completa con Docker, manejo estricto de zonas horarias (UTC) y prevención de race conditions mediante bloqueos pesimistas (`SELECT FOR UPDATE`).
+🧭 **Estado del Proyecto:** Semana 6/10 · ████████████░░░░░░░░ 60%  
+🛡️ **Calidad:** 90% Code Coverage · Tests automatizados verificados.
 
 ---
 
-## 🏗️ Arquitectura del Sistema
+### 📦 Descripción
 
-Orquestación local mediante Docker Compose aislando la API de la base de datos, con persistencia en volúmenes y gestión segura de secretos.
+Bifrost es el core de una infraestructura B2B diseñada para la gestión de recursos críticos en estudios de grabación. El proyecto prioriza la seguridad stateless, el aislamiento de datos y la resiliencia.
 
----
+A diferencia de prototipos básicos, Bifrost implementa una arquitectura modular inspirada en Clean Architecture, separando la lógica de negocio, los esquemas de validación y los mecanismos de seguridad.
 
-## ✅ Estado del Proyecto
-
-| Hito | Estado | Nota |
-|------|--------|------|
-| CLI resiliente (`httpx`) | ✅ | Consume APIs, maneja excepciones y timeouts. |
-| FastAPI + Swagger | ✅ | Endpoints base documentados automáticamente. |
-| PostgreSQL + SQLAlchemy | ✅ | Motor de base de datos relacional configurado. |
-| Migraciones (Alembic) | ✅ | Control de versiones del esquema de datos. |
-| Infraestructura (Docker) | ✅ | Entorno 100% reproducible (Compose + Healthchecks). |
-| Identidad y Seguridad | ✅ | Tabla de usuarios y hashing de contraseñas con Bcrypt. |
-| Autenticación JWT | ⏳ | Próximo objetivo: Rutas protegidas y validación de tokens. |
-| Reservas + Timezones | ⏳ | Lógica de negocio principal. |
-| Concurrencia (Bloqueos) | ⏳ | Manejo de race conditions. |
-| Pytest asíncrono | ⏳ | Cobertura >70%. |
-
-🔥 **Estado actual:** *"Plomería" completada*. Base de datos blindada, secretos fuera del código (`.env`) y contenedores comunicándose por una red interna aislada.
+**Hito alcanzado (Semana 6):** Implementación completa de seguridad criptográfica y suite de tests de integración con bases de datos aisladas en memoria.
 
 ---
 
-## 🚀 Cómo ejecutar el proyecto localmente
+### 🏗️ Arquitectura Modular
 
-Olvidate del *"funciona en mi máquina"*. El entorno está completamente contenerizado. Solo necesitás tener Docker instalado.
+El proyecto ha evolucionado de un monolito simple a una estructura de paquetes profesional:
 
-### 1. Clonar el repositorio
+- `app/api/` – Orquestación de endpoints y gestión de dependencias (inyección de dependencias de FastAPI).
+- `app/core/` – Motor de seguridad, configuración global y lógica de tokens JWT.
+- `app/models/` – Definición de esquemas relacionales (SQLAlchemy 2.0).
+- `app/schemas/` – Contratos de datos y validación estricta (Pydantic V2).
+- `tests/` – Suite de pruebas automatizadas con aislamiento mediante SQLite `:memory:`.
+
+---
+
+### ✅ Roadmap y Estado de Avance
+
+| Hito                     | Categoría      | Estado | Nota                                                  |
+|--------------------------|----------------|--------|-------------------------------------------------------|
+| Persistencia SQL         | Infra          | ✅      | SQLAlchemy 2.0 + PostgreSQL/SQLite.                  |
+| Identidad & Hashing      | Seguridad      | ✅      | Bcrypt (Passlib) con salting automático.             |
+| Autenticación JWT        | Seguridad      | ✅      | Tokens stateless con expiración configurable.        |
+| Modularización           | Arquitectura   | ✅      | Separación de concerns (Core, API, Schemas).         |
+| Testing Suite            | Calidad        | ✅      | 90% Coverage alcanzado con Pytest.                   |
+| Aislamiento de Tests     | Calidad        | ✅      | Overrides de dependencias y DB en RAM.               |
+| Logic: Reservations      | Negocio        | ⏳      | Gestión de slots y prevención de overbooking.        |
+| Concurrencia             | Negocio        | ⏳      | Bloqueos pesimistas para Race Conditions.            |
+| Despliegue CI/CD         | DevOps         | ⏳      | GitHub Actions para validación de tests.             |
+
+También como lista de tareas (GitHub style):
+
+- [x] Persistencia SQL
+- [x] Identidad & Hashing
+- [x] Autenticación JWT
+- [x] Modularización
+- [x] Testing Suite
+- [x] Aislamiento de Tests
+- [ ] Logic: Reservations
+- [ ] Concurrencia
+- [ ] Despliegue CI/CD
+
+---
+
+## 🧪 Calidad de Código (Testing)
+
+No aceptamos código que no pueda ser probado. La suite de tests actual garantiza la integridad del sistema en milisegundos.
+
+### Ejecución de Tests y Cobertura
 
 ```bash
-git clone https://github.com/baltasarblanco/bifrost-api.git
-cd bifrost-api
+# Ejecutar todos los tests
+pytest
+```
+```bash
+# Generar reporte de cobertura detallado
+pytest --cov=app tests/
 ```
 
-### 2. Configurar variables de entorno
-El proyecto usa un archivo .env para inyectar credenciales de forma segura. Existe una plantilla lista para usar:
+## 🚀 Instalación y Uso Local
+
+### 1. Entorno Virtual y Dependencias
 
 ```bash
-cp .env.example .env
-(Podés editar el .env si deseás cambiar el usuario o contraseña local de PostgreSQL).
+python -m venv venv
+source venv/bin/activate  # En Linux/macOS
+pip install -r requirements.txt
 ```
 
-### 3. Levantar la infraestructura
-Construimos la imagen de la API y levantamos la red junto a la base de datos:
+### 2. Variables de Entorno
+Crea un archivo .env basado en .env.example:
 
 ```bash
-sudo docker compose up -d --build
+SECRET_KEY="tu_clave_secreta_para_jwt"
+ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
-Nota: Si tu usuario está en el grupo docker, podés omitir sudo.
 
-### 4. Construir las tablas (Migraciones)
-Una vez que el contenedor de PostgreSQL esté saludable, ejecutamos Alembic para crear los esquemas:
-
+### 3. Ejecución en Desarrollo
 ```bash
-alembic upgrade head
+uvicorn app.main:app --reload
 ```
-
-### 5. Probar la API
-Ingresá a la documentación interactiva en tu navegador:
-👉 http://localhost:8000/docs
-
-## 📁 Estructura del Proyecto
-
-```plaintext
-bifrost-api/
-├── alembic/            # Historial de migraciones de la DB
-├── app/
-│   ├── main.py         # Inicialización de FastAPI y rutas
-│   ├── models.py       # Modelos relacionales de SQLAlchemy
-│   ├── schemas.py      # Esquemas de validación de Pydantic V2
-│   ├── security.py     # Motor criptográfico (Bcrypt / JWT)
-│   └── database.py     # Motor de conexión a PostgreSQL
-├── docs/               # Documentación y diagramas de arquitectura
-├── .env.example        # Plantilla de secretos y configuración
-├── docker-compose.yml  # Orquestación de servicios y red interna
-├── Dockerfile          # Receta de construcción de la API
-├── alembic.ini         # Configuración del gestor de migraciones
-└── requirements.txt    # Dependencias de Python
-```
+Acceso a documentación interactiva: http://localhost:8000/docs
 
 ## 🛠️ Stack Tecnológico
 
-- **Lenguaje:** Python 3.12+
-- **Framework Web:** FastAPI
-- **Validación de Datos:** Pydantic V2
-- **Base de Datos:** PostgreSQL 15
-- **ORM & Migraciones:** SQLAlchemy 2.0 + Alembic
-- **Seguridad:** Passlib (Bcrypt) + PyJWT
-- **Infraestructura:** Docker + Docker Compose
+- **Core:** Python 3.12+ / FastAPI.
+- **Seguridad:** PyJWT / Passlib (Bcrypt).
+- **Data:** SQLAlchemy 2.0 / Pydantic V2.
+- **Testing:** Pytest / Pytest-Cov / HTTPX.
+- **Infraestructura:** Docker / Docker Compose / PostgreSQL.
 
-## 📫 Créditos y contacto
+---
 
-Desarrollado por **Baltasar Blanco** como parte de un portafolio dual (Python pragmático + Rust de alto rendimiento).
+## 📫 Contacto e Ingeniería
 
+Este proyecto es parte del portafolio técnico de **Baltasar Blanco**, enfocado en la construcción de sistemas distribuidos, seguros y altamente testeados.
+
+- 💼 [LinkedIn](https://linkedin.com/in/baltasar-blanco)
 - 📧 baltablanco9008@gmail.com
-- 💼 [LinkedIn](https://linkedin.com/in/tu-perfil) *(Reemplazá por tu link real si querés)*
-- 📷 @baltasar_blanco
+
+> *“In code we trust, the rest we test.”* 🛡️
