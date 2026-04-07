@@ -22,3 +22,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 4. LA BASE
 Base = declarative_base()
+
+# Función al final:
+def get_db():
+    """
+    Generador de sesiones para la base de datos.
+    Abre la conexión por cada request y la cierra automáticamente al terminar.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

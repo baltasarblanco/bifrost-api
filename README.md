@@ -61,7 +61,7 @@ cp .env.example .env
 (Podés editar el .env si deseás cambiar el usuario o contraseña local de PostgreSQL).
 ```
 
-### ###3. Levantar la infraestructura
+### 3. Levantar la infraestructura
 Construimos la imagen de la API y levantamos la red junto a la base de datos:
 
 ```bash
