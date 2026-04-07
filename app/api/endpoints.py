@@ -23,7 +23,7 @@ router = APIRouter()
 # ==========================================
 # 1. REGISTRO DE USUARIO (El Blindaje)
 # ==========================================
-@router.post("/usuarios/", response_model=UsuarioResponse)
+@router.post("/usuarios/", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
 def crear_usuario(usuario_in: UsuarioCreate, db: Session = Depends(get_db)):
     """
     Registra un nuevo usuario encriptando su contraseña con Bcrypt.
