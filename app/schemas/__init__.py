@@ -44,3 +44,15 @@ class ReservaResponse(ReservaBase):
     estado: str
 
     model_config = ConfigDict(from_attributes=True)
+
+# ... (Tus otros schemas de Usuario y Reserva están arriba) ...
+
+class ArmaduraBase(BaseModel):
+    modelo: str
+    activa: bool = True
+
+class ArmaduraResponse(ArmaduraBase):
+    id: int
+    
+    # Esto es vital para que Pydantic pueda leer los datos directamente de SQLAlchemy
+    model_config = ConfigDict(from_attributes=True)

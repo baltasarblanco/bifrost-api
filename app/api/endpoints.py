@@ -2,6 +2,8 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from typing import List
+from datetime import datetime, timezone
 
 # Importaciones de seguridad
 from app.core.security import (
@@ -156,3 +158,101 @@ def crear_reserva(
     db.refresh(nueva_reserva)
 
     return nueva_reserva
+
+@router.get("/reservas/mis-reservas", response_model=List[schemas.ReservaResponse])
+def obtener_mis_reservas(
+    db: Session = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user)
+):
+    """
+    Devuelve el historial completo de reservas del usuario autenticado.
+    """
+    # 1. Buscamos el ID del usuario real
+    usuario = db.query(models.UsuarioDB).filter(models.UsuarioDB.email == current_user.sub).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    # 2. Traemos TODAS las reservas que le pertenecen a este usuario
+    reservas = db.query(models.ReservaDB).filter(
+        models.ReservaDB.usuario_id == usuario.id
+    ).order_by(models.ReservaDB.fecha_inicio.desc()).all()
+
+    # Si no tiene reservas, devolvemos una lista vacía [], lo cual es correcto en REST
+    return reservas
+
+@router.patch("/reservas/{reserva_id}/cancelar", response_model=schemas.ReservaResponse)
+def cancelar_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user)
+):
+    """
+    Cancela una reserva activa del usuario. Solo el dueño puede cancelarla.
+    """
+    # 1. Buscamos al usuario
+    usuario = db.query(models.UsuarioDB).filter(models.UsuarioDB.email == current_user.sub).first()
+    
+    # 2. Buscamos la reserva y aplicamos bloqueo pesimista (para que nadie la use mientras cancelamos)
+    reserva = db.query(models.ReservaDB).filter(
+        models.ReservaDB.id == reserva_id,
+        models.ReservaDB.usuario_id == usuario.id  # <-- SEGURIDAD: Solo podés cancelar las TUYAS
+    ).with_for_update().first()
+
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada o no tienes permiso.")
+
+    if reserva.estado == "cancelada":
+        raise HTTPException(status_code=400, detail="La reserva ya se encuentra cancelada.")
+
+    # 3. Cambiamos el estado
+    reserva.estado = "cancelada"
+    
+    db.commit()
+    db.refresh(reserva)
+
+    return reserva
+
+
+@router.get("/admin/reservas", response_model=List[schemas.ReservaResponse])
+def obtener_todas_las_reservas(
+    db: Session = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user) # <-- Por ahora cualquier logueado entra
+):
+    """
+    VISTA DE ADMINISTRADOR: Devuelve todas las reservas del sistema.
+    """
+    # En una fase avanzada, aquí preguntaríamos: if usuario.rol != "admin": raise 403
+    
+    todas = db.query(models.ReservaDB).all()
+    return todas
+
+
+# ==========================================
+# 4. ADMINISTRACIÓN Y DISPONIBILIDAD
+# ==========================================
+
+
+@router.get("/armaduras/disponibles", response_model=List[schemas.ArmaduraResponse])
+def listar_disponibilidad_actual(db: Session = Depends(get_db)):
+    """
+    Muestra las armaduras que NO tienen reservas activas en este preciso momento.
+    """
+    ahora = datetime.now(timezone.utc)
+    
+    # 1. Buscamos qué modelos de armadura tienen una reserva "pisando" el horario de ahora
+    ocupadas = db.query(models.ReservaDB.armadura_modelo).filter(
+        models.ReservaDB.estado == "activa",
+        models.ReservaDB.fecha_inicio <= ahora,
+        models.ReservaDB.fecha_fin >= ahora
+    ).all()
+    
+    # Convertimos la lista de tuplas de SQLAlchemy en una lista simple de strings
+    lista_modelos_ocupados = [r[0] for r in ocupadas]
+
+    # 2. Filtramos la tabla de armaduras: que no estén en la lista de ocupadas y que estén de alta
+    libres = db.query(models.ArmaduraDB).filter(
+        models.ArmaduraDB.modelo.notin_(lista_modelos_ocupados),
+        models.ArmaduraDB.activa
+    ).all()
+    
+    return libres
