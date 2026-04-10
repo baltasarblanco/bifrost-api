@@ -1,20 +1,33 @@
-# 1. Usar una imagen oficial de Python ligera como base
-FROM python:3.12-slim
+# Etapa 1: Constructor (Build)
+FROM python:3.12-slim as builder
 
-# 2. Definir el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# 3. Copiar el inventario de dependencias
+# Instalamos dependencias del sistema necesarias para psycopg2 y compilación
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# 4. Instalar las dependencias
-RUN pip install --no-cache-dir -r requirements.txt
+# Etapa 2: Ejecución (Runtime)
+FROM python:3.12-slim
 
-# 5. Copiar el resto de tu código fuente al contenedor
+WORKDIR /app
+
+# Solo instalamos la librería de PostgreSQL necesaria para correr
+RUN apt-get update && apt-get install -y libpq5 && rm -rf /var/lib/apt/lists/*
+
+# Copiamos las librerías instaladas de la etapa anterior
+COPY --from=builder /install /usr/local
+
+# Copiamos el código de la app
 COPY . .
 
-# 6. Exponer el puerto por donde habla FastAPI
+# Exponemos el puerto que usará AWS App Runner o EC2
 EXPOSE 8000
 
-# 7. El comando de encendido
+# Comando para arrancar (usamos 0.0.0.0 para que sea accesible desde afuera)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
