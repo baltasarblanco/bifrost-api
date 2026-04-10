@@ -7,8 +7,9 @@ env/
 __pycache__/
 *.py[cod]
 *$py.class
+.ruff_cache/
 
-# --- NUEVOS REFUERZOS PARA SEMANA 6 ---
+# --- REFUERZOS DE DESPLIEGUE (SEMANA 11) ---
 # Testing y Cobertura
 .pytest_cache/
 .coverage
@@ -17,9 +18,18 @@ nosetests.xml
 coverage.xml
 .hypothesis/
 
-# Base de Datos (No queremos subir tu base local con tus usuarios de prueba)
+# Base de Datos y Migraciones
 *.db
 *.sqlite3
+# (Opcional) Si usas logs pesados de Alembic
+alembic.log
 
-# Secretos y Configuración
+# Secretos y Configuración (CRÍTICO)
 .env
+.env.local
+.env.*.local
+
+# Archivos de Sistema e IDE
+.DS_Store
+.vscode/
+.idea/
