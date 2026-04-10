@@ -13,8 +13,25 @@ from app.api.endpoints import router as auth_router
 # ⚠️ ESTA LÍNEA ES CLAVE: Crea las tablas físicas en la DB si no existen
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Project Bifrost", version="Mark 4.0 (Persistente y Seguro)")
-
+app = FastAPI(
+    title="Bifrost API - Enterprise Resource Manager",
+    description="""
+    Motor transaccional de gestión de armaduras y reservas.
+    
+    ### Características:
+    * **AI-Powered**: Extracción de intenciones con Gemini.
+    * **Enterprise Ready**: Auditoría completa y Soft-Delete.
+    * **Cloud Optimized**: Diseñado para despliegue en AWS.
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Baltasar Blanco",
+        "url": "https://github.com/baltasarblanco",
+    },
+    license_info={
+        "name": "MIT License",
+    },
+)
 # ==========================================
 # 2. ENRUTAMIENTO DE SEGURIDAD (La rama nueva)
 # ==========================================

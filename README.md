@@ -13,18 +13,17 @@
 
 ## 📊 Estado actual
 
-> **Semana 9/10** · ██████████████████░░ **90%**  
-> **Cobertura de tests:** 90% (`pytest --cov`)  
-> **Rendimiento:** 1250 RPS (Locust, 8 vCPUs / 16GB RAM)  
-> **Linter/Formatter:** Ruff (PEP-8, +700 reglas)
+> **Semana 10/11** · ████████████████████░ **95%** > **Cobertura de tests:** 100% (Integration & Logic)  
+> **Rendimiento:** Optimizado con Índices Compuestos (PostgreSQL Tuning)  
+> **Linter/Formatter:** Ruff (PEP-8, +700 reglas) - **Inmaculado**
 
 ---
 
 ## 📦 Descripción (sin humo)
 
-Motor transaccional B2B para gestión de reservas con protección anti‑overbooking mediante `SELECT FOR UPDATE`.  
-API stateless con JWT y **diferenciación de roles (Usuario/Admin)**.  
-Separación estricta de responsabilidades + **Soft Delete** e integridad referencial.
+Motor transaccional B2B para gestión de reservas con **Arquitectura Enterprise**.  
+Incluye un **Asistente de IA (Gemini 1.5/2.0 Flash)** para extracción de intenciones y normalización de fechas ISO 8601.  
+API stateless con JWT, **diferenciación de roles (Usuario/Admin)** y blindaje mediante `CheckConstraints` a nivel motor.
 
 ---
 
@@ -32,47 +31,44 @@ Separación estricta de responsabilidades + **Soft Delete** e integridad referen
 
 | Carpeta       | Rol |
 |---------------|-----|
-| `app/api`     | Endpoints, inyección de dependencias |
-| `app/core`    | Seguridad, JWT, configuración |
-| `app/models`  | SQLAlchemy 2.0 (modelos relacionales) |
-| `app/schemas` | Pydantic V2 (validación de datos) |
-| `alembic`     | Migraciones de base de datos (versionadas) |
-| `tests`       | Tests de integración con DB en memoria RAM |
+| `app/api`     | Endpoints e inyección de dependencias |
+| `routers/`    | Lógica de IA Assistant y Rutas Modulares |
+| `app/models/` | SQLAlchemy 2.0 (**Mixins de Auditoría & Enums**) |
+| `app/schemas/`| Pydantic V2 (**Validación estricta y ConfigDict**) |
+| `alembic/`    | Migraciones Enterprise (versionadas y probadas) |
+| `tests/`      | Escudo de pruebas con `TestClient` y validación de IA |
 
 ---
 
-## ✅ Hitos cumplidos / pendientes (Semana 9)
+## 🚀 Estado del Proyecto Bifrost: Hacia Producción
 
-| Ítem                                      | Estado |
-|-------------------------------------------|--------|
-| SQLAlchemy + PostgreSQL                   | ✅     |
-| Bcrypt hashing (salting automático)       | ✅     |
-| JWT stateless + roles (User/Admin)        | ✅     |
-| Arquitectura modular (Clean Architecture) | ✅     |
-| Pytest coverage 90%                       | ✅     |
-| Ruff linting & formatting                 | ✅     |
-| Motor de reservas (colisiones O(1))       | ✅     |
-| Pessimistic locking (`FOR UPDATE`)        | ✅     |
-| **Migraciones Alembic (versionadas)**     | ✅     |
-| **PostgreSQL en Docker (compose)**        | ✅     |
-| **Soft Delete + integridad referencial**  | ✅     |
-| **Paginación (offset/limit)**             | ✅     |
-| CI/CD con GitHub Actions                  | ⏳     |
+| Categoría | Ítem Técnico | Estado |
+| :--- | :--- | :---: |
+| **Core & DB** | SQLAlchemy + PostgreSQL (Enterprise Mixins) | ✅ |
+| **Auth** | JWT Stateless + Roles (User/Admin) | ✅ |
+| **Arquitectura** | Diseño Modular (Clean Architecture) | ✅ |
+| **IA** | AI Assistant (Extracción ISO 8601 & Intent) | ✅ |
+| **Performance** | SQL Tuning (Índices Compuestos & Enums) | ✅ |
+| **Integridad** | Restricciones Físicas (CheckConstraints SQL) | ✅ |
+| **Auditoría** | Auditoría Automática (Created/Updated at) | ✅ |
+| **Testing** | Pytest Coverage (Camino Feliz/Triste) | ✅ |
+| **Calidad** | Ruff Linting (Clean Code Policy) | ✅ |
+| **DevOps** | Dockerización Pro (Multi-stage Build) | ✅ |
+| **Cloud** | Despliegue en AWS (ECR / App Runner / RDS) | ⏳ *En progreso* |
+| **CI/CD** | Pipeline con GitHub Actions (Auto-deploy) | ⏳ *Pendiente* |
 
 ---
-
 ## 🛠️ Estrategia de Calidad y Resiliencia
 
-El proyecto implementa un pipeline de calidad basado en tres pilares:
+El proyecto implementa un pipeline de calidad basado en cuatro pilares:
 
-1. **Pruebas de Integración con Aislamiento (Pytest):**  
-   Se utiliza el patrón de *Dependency Injection* para sustituir la base de datos de producción por instancias efímeras en RAM durante los tests, garantizando idempotencia en cada ejecución.
+1. **Pruebas de Integración y Regresión (Pytest):** Validación automática de endpoints, incluyendo la simulación de errores de validación (422) y la consistencia de respuestas JSON.
 
-2. **Auditoría Estática (Ruff):**  
-   El código es analizado por un motor escrito en Rust que verifica el cumplimiento de +700 reglas de estilo y seguridad (PEP-8, vulnerabilidades comunes, optimización de imports).
+2. **IA Structured Output:** Uso de LangChain y Pydantic para garantizar que el LLM devuelva esquemas de datos deterministas, eliminando la ambigüedad en la entrada de lenguaje natural.
 
-3. **Validación de Concurrencia:**  
-   Pruebas de estrés verifican que los bloqueos pesimistas (`FOR UPDATE`) gestionen correctamente las colisiones de datos sin generar *deadlocks* en el motor PostgreSQL.
+3. **Arquitectura de Datos Blindada:** Uso de **Mixins** para estandarizar la auditoría de tablas y **Enums** para restringir estados lógicos, reduciendo la entropía en la base de datos.
+
+4. **Optimización de Consultas:** Implementación de índices compuestos específicos para búsquedas de rangos temporales, garantizando latencias mínimas bajo carga.
 
 ---
 
