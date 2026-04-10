@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-
+from routers import ai_assistant # Asegurate de que el import coincida con tu carpeta
 # Importaciones locales
 from app import models
 from app.database import SessionLocal, engine
@@ -131,3 +131,5 @@ def eliminar_armadura(nombre_modelo: str, db: Session = Depends(get_db)):
 
 # ⚠️ AQUÍ TERMINA EL ARCHIVO.
 # Ya no hay un endpoint @app.post("/usuarios/") porque eso ahora lo maneja endpoints.py
+
+app.include_router(ai_assistant.router)
