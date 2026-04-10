@@ -1,61 +1,62 @@
-from pydantic import BaseModel, EmailStr
-from datetime import datetime
-from pydantic import ConfigDict, model_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, model_validator
+from datetime import datetime, timezone
+# Importamos los ENUMS directamente desde tus modelos de base de datos
+from app.models import EstadoReserva, NivelEnergiaArmadura
 from .token import Token as Token, TokenPayload as TokenPayload
 
-
-# Lo que EXIGIMOS del cliente (El body del POST)
+# ==========================================
+# 🛡️ USUARIOS
+# ==========================================
 class UsuarioCreate(BaseModel):
-    email: EmailStr  # EmailStr valida que tenga un formato de correo válido (@)
+    email: EmailStr
     password: str
 
-
-# Lo que DEVOLVEMOS al cliente (Fijate que NO incluimos la contraseña)
 class UsuarioResponse(BaseModel):
     id: int
     email: EmailStr
     is_active: bool
+    is_admin: bool  # 🆕 Agregamos el campo de admin
+    
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True  # Permite a Pydantic leer el objeto de SQLAlchemy
+# ==========================================
+# 🛡️ ARMADURAS
+# ==========================================
+class ArmaduraBase(BaseModel):
+    modelo: str
+    activa: bool = True
+    estado_energia: NivelEnergiaArmadura  # 🆕 Usamos el Enum estricto
 
+class ArmaduraResponse(ArmaduraBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
 
+# ==========================================
+# 🛡️ RESERVAS
+# ==========================================
 class ReservaBase(BaseModel):
     armadura_modelo: str
     fecha_inicio: datetime
     fecha_fin: datetime
 
-
 class ReservaCreate(ReservaBase):
-    # Validador avanzado: Se ejecuta automáticamente para revisar la lógica de negocio temporal
     @model_validator(mode="after")
     def verificar_fechas(self) -> "ReservaCreate":
+        # 🆕 Nos aseguramos de que las fechas tengan timezone (UTC)
+        if self.fecha_inicio.tzinfo is None:
+            self.fecha_inicio = self.fecha_inicio.replace(tzinfo=timezone.utc)
+        if self.fecha_fin.tzinfo is None:
+            self.fecha_fin = self.fecha_fin.replace(tzinfo=timezone.utc)
+
         if self.fecha_fin <= self.fecha_inicio:
             raise ValueError(
                 "Operación rechazada: La fecha de fin debe ser posterior a la de inicio."
             )
-        # (Opcional) Podríamos verificar que fecha_inicio no sea en el pasado,
-        # pero para testear nos conviene dejarlo libre por ahora.
         return self
-
 
 class ReservaResponse(ReservaBase):
     id: int
     usuario_id: int
-    estado: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-# ... (Tus otros schemas de Usuario y Reserva están arriba) ...
-
-class ArmaduraBase(BaseModel):
-    modelo: str
-    activa: bool = True
-
-class ArmaduraResponse(ArmaduraBase):
-    id: int
+    estado: EstadoReserva  # 🆕 Usamos el Enum en lugar de 'str'
     
-    # Esto es vital para que Pydantic pueda leer los datos directamente de SQLAlchemy
     model_config = ConfigDict(from_attributes=True)
-
-# 🆕 Importamos los esquemas de seguridad desde el archivo token.py

@@ -2,39 +2,61 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
-import google.generativeai as genai
+from datetime import datetime, timezone
+from typing import Literal
 import os
 
 router = APIRouter(prefix="/ai-assistant", tags=["AI Assistant"])
 
-# 1. Definimos qué formato EXACTO queremos que devuelva Gemini
+# ==========================================
+# 1. EL ESQUEMA ESTRICTO (El traductor para la Base de Datos)
+# ==========================================
 class ReservationIntent(BaseModel):
-    armor_type: str = Field(description="El tipo o nombre de la armadura mencionada (ej: Mark IV, Stealth, Asalto). Si no se menciona, devuelve 'Unknown'.")
-    date_requested: str = Field(description="La fecha o momento solicitado (ej: 'Viernes por la tarde', 'mañana').")
-    action: str = Field(description="La acción que quiere hacer el usuario (ej: 'reserve', 'inquire', 'cancel').")
+    armor_modelo: str = Field(
+        description="El modelo exacto de la armadura mencionada (ej: Mark IV, Stealth, Asalto). Si no se menciona, devuelve 'Desconocido'."
+    )
+    # Obligamos a la IA a calcular la fecha real y devolverla en formato ISO 8601
+    fecha_inicio: datetime = Field(
+        description="La fecha y hora exacta de inicio de la reserva en formato ISO 8601."
+    )
+    fecha_fin: datetime = Field(
+        description="La fecha y hora exacta de finalización de la reserva en formato ISO 8601. Si el usuario no especifica, asume que dura 24 horas."
+    )
+    # Restringimos las opciones para que no invente acciones raras
+    accion: Literal["crear_reserva", "cancelar_reserva", "consultar_disponibilidad"] = Field(
+        description="La intención del usuario."
+    )
 
-# 2. Esquema para lo que el usuario envía
 class UserPrompt(BaseModel):
     text: str
 
+# ==========================================
+# 2. EL ENDPOINT PRINCIPAL
+# ==========================================
 @router.post("/analyze")
 async def analyze_reservation_request(prompt: UserPrompt):
-    # LangChain busca GOOGLE_API_KEY por defecto en las variables de entorno
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY no está configurada en el .env")
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY no está configurada")
 
-    # Inicializamos Gemini (1.5-flash es ultra rápido y perfecto para extraer datos)
+    # Usamos el modelo estable que confirmamos que tenés disponible
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-    
-    # Forzamos a Gemini a devolver un JSON que cumpla con el esquema ReservationIntent
     structured_llm = llm.with_structured_output(ReservationIntent)
 
-    # Creamos el prompt con el contexto del Hangar
+    # 🕒 INYECCIÓN DE CONTEXTO: Le pasamos la hora real del servidor
+    ahora = datetime.now(timezone.utc)
+    
     system_template = """
-    Eres el asistente logístico de IA del Hangar Bifrost.
-    Tu trabajo es analizar el mensaje del usuario y extraer los datos de la reserva de armadura.
-    No respondas conversacionalmente, solo extrae los datos pedidos.
+    Eres el sistema de procesamiento logístico del Hangar Bifrost.
+    Tu trabajo es extraer parámetros estrictos para la base de datos PostgreSQL a partir del mensaje del usuario.
+    
+    INFORMACIÓN DEL SISTEMA:
+    - Fecha y hora actual del servidor: {fecha_actual}
+    
+    REGLAS ESTRICTAS:
+    1. Calcula las fechas relativas (ej: "mañana", "el viernes") usando la fecha actual del servidor.
+    2. Las fechas deben ser devueltas en formato de marca de tiempo (ISO 8601 con zona horaria UTC).
+    3. Si la armadura es "sigilosa", el modelo es "Stealth". Si es "asalto pesado", el modelo es "Hulkbuster".
     """
     
     prompt_template = ChatPromptTemplate.from_messages([
@@ -42,45 +64,17 @@ async def analyze_reservation_request(prompt: UserPrompt):
         ("user", "{user_text}")
     ])
 
-    # Ensamblamos y ejecutamos la cadena
     chain = prompt_template | structured_llm
     
     try:
-        resultado = chain.invoke({"user_text": prompt.text})
+        # Ejecutamos la cadena inyectando el texto del usuario Y la fecha actual
+        resultado = chain.invoke({
+            "user_text": prompt.text,
+            "fecha_actual": ahora.isoformat()
+        })
+        
+        # FastAPI automáticamente convertirá los objetos datetime a un JSON seguro
         return {"status": "success", "extracted_data": resultado}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en Gemini: {str(e)}")
-    
-@router.get("/ping")
-async def ping_gemini():
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="Falta la API Key")
         
-    llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0)
-    
-    try:
-        # Hacemos una consulta cruda, sin forzar JSON ni Pydantic
-        respuesta = llm.invoke("Responde exactamente con estas palabras: Conexion exitosa con Bifrost")
-        return {"status": "ok", "mensaje_ia": respuesta.content}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error crudo: {str(e)}")
-    
-@router.get("/list-models")
-async def list_available_models():
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="Falta la API Key")
-        
-    # Configuramos la librería base de Google
-    genai.configure(api_key=api_key)
-    
-    # Buscamos todos los modelos que soporten generación de texto
-    modelos_disponibles = []
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                modelos_disponibles.append(m.name)
-        return {"status": "ok", "modelos": modelos_disponibles}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error en el procesamiento de IA: {str(e)}")
