@@ -1,9 +1,14 @@
+from fastapi import Request
+from app.core.rate_limiter import limiter
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
+
+from fastapi import Request
+from app.core.rate_limiter import limiter
 
 # Importaciones de seguridad
 from app.core.security import (
@@ -35,11 +40,15 @@ router = APIRouter()
 @router.post(
     "/usuarios/", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED
 )
-def crear_usuario(usuario_in: UsuarioCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def crear_usuario(
+    request: Request,
+    usuario_in: UsuarioCreate,
+    db: Session = Depends(get_db),
+):
     """
     Registra un nuevo usuario encriptando su contraseña con Bcrypt.
     """
-    # Verificamos si el email ya existe para evitar duplicados
     user_exists = (
         db.query(UsuarioDB).filter(UsuarioDB.email == usuario_in.email).first()
     )
@@ -48,10 +57,7 @@ def crear_usuario(usuario_in: UsuarioCreate, db: Session = Depends(get_db)):
             status_code=400, detail="El email ya está registrado en el sistema."
         )
 
-    # 🛡️ PASO CLAVE: Hasheamos la contraseña
     hashed_pw = get_password_hash(usuario_in.password)
-
-    # Guardamos en la base de datos usando el hash, NUNCA la contraseña en texto plano
     nuevo_usuario = UsuarioDB(email=usuario_in.email, hashed_password=hashed_pw)
     db.add(nuevo_usuario)
     db.commit()
@@ -64,17 +70,17 @@ def crear_usuario(usuario_in: UsuarioCreate, db: Session = Depends(get_db)):
 # 2. LOGIN (La Puerta de Entrada)
 # ==========================================
 @router.post("/login/access-token", response_model=Token)
+@limiter.limit("5/minute")
 def login_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
 ):
     """
     Endpoint para autenticar usuarios contra la base de datos y devolver un JWT.
     """
-    # 💡 NOTA SENIOR: OAuth2 usa el campo 'username' por defecto.
-    # Como nosotros usamos email, mapeamos form_data.username a UsuarioDB.email
     user = db.query(UsuarioDB).filter(UsuarioDB.email == form_data.username).first()
 
-    # Validamos que el usuario exista y que la contraseña coincida con el hash
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -82,7 +88,6 @@ def login_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Si todo está OK, generamos el JWT usando el email del usuario como "Subject" (sub)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
@@ -106,10 +111,12 @@ def ruta_super_secreta(current_user: TokenPayload = Depends(get_current_user)):
 
 
 @router.post("/reservas/", response_model=schemas.ReservaResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 def crear_reserva(
+    request: Request,
     reserva_in: schemas.ReservaCreate,
     db: Session = Depends(get_db),
-    current_user: TokenPayload = Depends(get_current_user)  # <-- Usamos tu patovica real
+    current_user: TokenPayload = Depends(get_current_user)
 ):
     """
     Crea una nueva reserva aplicando bloqueos pesimistas para evitar overbooking.
@@ -232,7 +239,11 @@ def obtener_todas_las_reservas(
 # ==========================================
 
 @router.get("/armaduras/disponibles", response_model=List[schemas.ArmaduraResponse])
-def listar_disponibilidad_actual(db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def listar_disponibilidad_actual(
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
     Muestra las armaduras que NO tienen reservas activas en este preciso momento.
     """
