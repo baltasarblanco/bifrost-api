@@ -1,3 +1,16 @@
+import os
+
+# Señales a la app que estamos en contexto de test.
+# DEBE estar antes de importar app.main para que el lifespan lo lea.
+os.environ["TESTING"] = "1"
+
+# Opcional pero recomendado: también override la DB URL a SQLite en memoria
+# por si algo más en la app intenta usar Postgres al importar.
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
+import pytest
+from fastapi.testclient import TestClient
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
