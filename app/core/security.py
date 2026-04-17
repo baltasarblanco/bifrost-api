@@ -11,13 +11,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ==========================================
 # 2. CONFIGURACIÓN DE TOKENS (JWT)
 # ==========================================
-# En producción, esto se carga desde un archivo .env
-SECRET_KEY = os.getenv(
-    "SECRET_KEY", "tu_super_clave_secreta_de_desarrollo_cambiar_en_prod"
-)
-ALGORITHM = "HS256"
-# ESTA es la variable que causaba el error:
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+
+from app.core.config import get_settings
+
+settings = get_settings()
+
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 # ==========================================
