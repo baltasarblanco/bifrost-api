@@ -1,21 +1,40 @@
-
 services:
   db:
     image: postgres:15-alpine
     container_name: ronin_postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}      # ← toma del .env
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Opcional pero recomendado: healthcheck para que espere a que DB esté lista
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ronin_redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    command: >
+      sh -c 'redis-server
+      --requirepass "$$REDIS_PASSWORD"
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru'
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   web:
@@ -24,11 +43,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL}      # ← toma del .env
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
       db:
-        condition: service_healthy        # ← mejor que solo depends_on
-    # También podés pasar otras variables como JWT_SECRET, etc.
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  redis_data:
