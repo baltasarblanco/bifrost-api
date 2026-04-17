@@ -1,17 +1,53 @@
-from fastapi import FastAPI, HTTPException, Depends
+import os 
+from redis.asyncio import Redis
+from app.core.redis_client import get_redis
+
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi import _rate_limit_exceeded_handler
+
+from app.core.rate_limiter import limiter  # ← NUEVO
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from routers import ai_assistant # Asegurate de que el import coincida con tu carpeta
-# Importaciones locales
+
+from routers import ai_assistant
 from app import models
 from app.database import SessionLocal, engine
 from app.api.endpoints import router as auth_router
+from app.core.redis_client import redis_client  # ← NUEVO
 
 # ==========================================
 # 1. INICIALIZAR LA BASE DE DATOS
 # ==========================================
-# ⚠️ ESTA LÍNEA ES CLAVE: Crea las tablas físicas en la DB si no existen
-models.Base.metadata.create_all(bind=engine)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Ciclo de vida de la aplicación.
+    
+    Startup: inicializa el pool de Redis.
+    Shutdown: cierra conexiones prolijamente.
+    """
+    # --- STARTUP ---
+    # Crear tablas solo en dev real, no en tests.
+    # TESTING=1 lo seteará el conftest.py antes de importar la app.
+    is_testing = os.getenv("TESTING") == "1"
+    
+    if not is_testing:
+        models.Base.metadata.create_all(bind=engine)
+        await redis_client.connect()
+        print("✅ Redis pool initialized")
+    
+    yield
+    
+    # --- SHUTDOWN ---
+    if not is_testing:
+        await redis_client.disconnect()
+        print("👋 Redis pool closed")
 
 app = FastAPI(
     title="Bifrost API - Enterprise Resource Manager",
@@ -31,7 +67,15 @@ app = FastAPI(
     license_info={
         "name": "MIT License",
     },
+    lifespan=lifespan,
 )
+
+# Rate Limiter: attach al state de la app + middleware + exception handler
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 # ==========================================
 # 2. ENRUTAMIENTO DE SEGURIDAD (La rama nueva)
 # ==========================================
@@ -62,6 +106,22 @@ class Armadura(BaseModel):
 def root():
     return {"sistema": "Pop!_OS", "estado": "En línea, Persistente y Seguro"}
 
+@app.get("/health/redis", tags=["Health"], status_code=status.HTTP_200_OK)
+async def health_redis(redis: Redis = Depends(get_redis)):
+    """
+    Healthcheck de Redis. Útil para:
+    - Debugging local.
+    - AWS App Runner / ECS healthchecks.
+    - Smoke tests en CI/CD.
+    """
+    try:
+        pong = await redis.ping()
+        return {"redis": "healthy", "ping": pong}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Redis unhealthy: {e}",
+        )
 
 @app.post("/armaduras/", tags=["Armaduras"])
 def registrar_armadura(armadura: Armadura, db: Session = Depends(get_db)):
