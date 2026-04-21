@@ -8,3 +8,4 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: str | None = None
+    jti: str | None = None  # ← NUEVO: JWT ID único para blacklist

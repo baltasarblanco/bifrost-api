@@ -1,7 +1,10 @@
-import os
+import uuid
 from datetime import datetime, timedelta, timezone
-from passlib.context import CryptContext
+
 import jwt
+from passlib.context import CryptContext
+
+from app.core.config import get_settings
 
 # ==========================================
 # 1. CONFIGURACIÓN CRIPTOGRÁFICA (Bcrypt)
@@ -12,7 +15,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 2. CONFIGURACIÓN DE TOKENS (JWT)
 # ==========================================
 
-from app.core.config import get_settings
 
 settings = get_settings()
 
@@ -38,10 +40,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # 4. FUNCIONES DE AUTENTICACIÓN
 # ==========================================
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """Genera un JSON Web Token (JWT) stateless."""
+    """Genera un JSON Web Token (JWT) stateless con JTI único para revocación."""
     to_encode = data.copy()
 
-    # Manejo de tiempo en UTC
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -49,9 +50,11 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
             minutes=ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode.update({"exp": expire})
+    # JTI (JWT ID): UUID único por token, permite revocación individual en Redis.
+    # Estándar RFC 7519 Section 4.1.7.
+    jti = str(uuid.uuid4())
 
-    # Firma del token
+    to_encode.update({"exp": expire, "jti": jti})
+
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
     return encoded_jwt
