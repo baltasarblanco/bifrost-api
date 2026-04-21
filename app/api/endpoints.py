@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 # --- Local ---
 from app import models, schemas
-from app.api.dependencies import get_current_user, oauth2_scheme
 from app.core.rate_limiter import limiter
 from app.core.redis_client import get_redis
 from app.core.security import (
@@ -28,7 +27,13 @@ from app.models import UsuarioDB
 from app.schemas import UsuarioCreate, UsuarioResponse
 from app.schemas.token import Token, TokenPayload
 
-
+from app.api.dependencies import (
+    get_current_user,
+    oauth2_scheme,
+    idempotency_dependency,
+    IdempotencyContext,
+)
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
@@ -144,61 +149,102 @@ def ruta_super_secreta(current_user: TokenPayload = Depends(get_current_user)):
     }
 
 
-@router.post("/reservas/", response_model=schemas.ReservaResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/reservas/",
+    response_model=schemas.ReservaResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 @limiter.limit("20/minute")
-def crear_reserva(
+async def crear_reserva(
     request: Request,
     reserva_in: schemas.ReservaCreate,
     db: Session = Depends(get_db),
-    current_user: TokenPayload = Depends(get_current_user)
+    current_user: TokenPayload = Depends(get_current_user),
+    idem: IdempotencyContext = Depends(idempotency_dependency("reservas")),
 ):
     """
-    Crea una nueva reserva aplicando bloqueos pesimistas para evitar overbooking.
+    Creates a new reservation with pessimistic locking and idempotency support.
+
+    Idempotency contract:
+    - Client MUST send header 'Idempotency-Key' (UUID v4 recommended).
+    - Same key + same body → returns cached response (success or error).
+    - Same key + different body → 422 Unprocessable Entity.
+    - New key → processes normally and caches result for 24h.
+
+    Both successful (201) and error responses (404/409) are cached. This is
+    critical for replay protection: if only successes were cached, an
+    attacker could send an intentionally-failing request and then reuse
+    the key with a modified body, bypassing the body-hash validation.
     """
-    # 0. BUSCAMOS AL USUARIO EN LA DB (Para obtener su ID)
-    usuario = db.query(models.UsuarioDB).filter(models.UsuarioDB.email == current_user.sub).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado en la base de datos.")
-
-    # 1. BLOQUEO PESIMISTA: Buscamos la armadura y bloqueamos su fila.
-    armadura = db.query(models.ArmaduraDB).filter(
-        models.ArmaduraDB.modelo == reserva_in.armadura_modelo
-    ).with_for_update().first()
-
-    if not armadura:
-        raise HTTPException(status_code=404, detail="Armadura no encontrada.")
-
-    if not armadura.activa:
-        raise HTTPException(status_code=400, detail="La armadura se encuentra fuera de servicio.")
-
-    # 2. DETECCIÓN DE COLISIONES TEMPORALES (Overbooking)
-    colision = db.query(models.ReservaDB).filter(
-        models.ReservaDB.armadura_modelo == reserva_in.armadura_modelo,
-        models.ReservaDB.estado == "activa",
-        models.ReservaDB.fecha_inicio < reserva_in.fecha_fin,
-        models.ReservaDB.fecha_fin > reserva_in.fecha_inicio
-    ).first()
-
-    if colision:
-        raise HTTPException(
-            status_code=409,
-            detail="Operación rechazada: La armadura ya está reservada para ese rango horario."
+    # --- Idempotency short-circuit ---
+    if idem.cached_response is not None:
+        return JSONResponse(
+            status_code=idem.cached_response["status_code"],
+            content=idem.cached_response["body"],
         )
 
-    # 3. PERSISTENCIA
-    nueva_reserva = models.ReservaDB(
-        usuario_id=usuario.id,  # <-- Usamos el ID numérico que requiere la tabla
-        armadura_modelo=reserva_in.armadura_modelo,
-        fecha_inicio=reserva_in.fecha_inicio,
-        fecha_fin=reserva_in.fecha_fin,
-        estado="activa"
-    )
-    
-    db.add(nueva_reserva)
-    db.commit()
-    db.refresh(nueva_reserva)
+    # --- Business logic wrapped to cache both success and error paths ---
+    try:
+        # 0. Resolve user.
+        usuario = db.query(models.UsuarioDB).filter(
+            models.UsuarioDB.email == current_user.sub
+        ).first()
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado en la base de datos.")
 
-    return nueva_reserva
+        # 1. Pessimistic lock on the target armadura.
+        armadura = db.query(models.ArmaduraDB).filter(
+            models.ArmaduraDB.modelo == reserva_in.armadura_modelo
+        ).with_for_update().first()
+
+        if not armadura:
+            raise HTTPException(status_code=404, detail="Armadura no encontrada.")
+
+        if not armadura.activa:
+            raise HTTPException(status_code=400, detail="La armadura se encuentra fuera de servicio.")
+
+        # 2. Overbooking detection.
+        colision = db.query(models.ReservaDB).filter(
+            models.ReservaDB.armadura_modelo == reserva_in.armadura_modelo,
+            models.ReservaDB.estado == "activa",
+            models.ReservaDB.fecha_inicio < reserva_in.fecha_fin,
+            models.ReservaDB.fecha_fin > reserva_in.fecha_inicio,
+        ).first()
+
+        if colision:
+            raise HTTPException(
+                status_code=409,
+                detail="Operación rechazada: La armadura ya está reservada para ese rango horario.",
+            )
+
+        # 3. Persistence.
+        nueva_reserva = models.ReservaDB(
+            usuario_id=usuario.id,
+            armadura_modelo=reserva_in.armadura_modelo,
+            fecha_inicio=reserva_in.fecha_inicio,
+            fecha_fin=reserva_in.fecha_fin,
+            estado="activa",
+        )
+        db.add(nueva_reserva)
+        db.commit()
+        db.refresh(nueva_reserva)
+
+        # 4. Cache SUCCESS response.
+        response_body = schemas.ReservaResponse.model_validate(nueva_reserva).model_dump(mode="json")
+        await idem.persist(status_code=201, body=response_body)
+
+        return nueva_reserva
+
+    except HTTPException as e:
+        # 4b. Cache ERROR response (critical for replay protection).
+        # This ensures that same-key retries return the same error,
+        # and prevents attackers from bypassing body-hash validation by
+        # triggering intentional failures on the first request.
+        await idem.persist(
+            status_code=e.status_code,
+            body={"detail": e.detail},
+        )
+        raise  # Re-raise so FastAPI handles it normally.
 
 @router.get("/reservas/mis-reservas", response_model=List[schemas.ReservaResponse])
 def obtener_mis_reservas(
