@@ -39,14 +39,19 @@ async def lifespan(app: FastAPI):
     
     if not is_testing:
         models.Base.metadata.create_all(bind=engine)
-        await redis_client.connect()
+    
+    # Redis siempre se conecta: fake en tests, real en prod.
+    # El código de blacklist necesita un cliente real para hacer setex/exists.
+    await redis_client.connect()
+    
+    if not is_testing:
         print("✅ Redis pool initialized")
     
     yield
     
     # --- SHUTDOWN ---
+    await redis_client.disconnect()
     if not is_testing:
-        await redis_client.disconnect()
         print("👋 Redis pool closed")
 
 app = FastAPI(

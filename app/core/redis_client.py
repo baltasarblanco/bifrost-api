@@ -1,39 +1,39 @@
 """
 Cliente Redis asíncrono con pool de conexiones.
 
-Diseñado para ser usado en toda la aplicación:
-- Rate limiting (SlowAPI)
-- JWT blacklist (logout)
-- Idempotency keys
-- Cache general
+En tests (TESTING=1), usa fakeredis — implementación 100% en memoria
+de Redis. El código de producción no cambia: mismas llamadas, mismo
+comportamiento. Test Double tipo "Fake" (categoría oficial xUnit).
 """
+import os
 from redis.asyncio import Redis, ConnectionPool
 
 from app.core.config import get_settings
 
 
 class RedisClient:
-    """
-    Wrapper singleton que gestiona un pool async de Redis.
-    
-    Se inicializa una vez al arrancar la app (lifespan startup)
-    y se cierra limpiamente al apagarla (lifespan shutdown).
-    """
-
     def __init__(self) -> None:
         self._pool: ConnectionPool | None = None
         self._client: Redis | None = None
 
     async def connect(self) -> None:
         """Abre el pool de conexiones. Llamado en lifespan startup."""
+        if os.getenv("TESTING") == "1":
+            # En tests: usamos fakeredis en memoria, sin TCP, sin servidor.
+            # Import local para no forzar la dependencia en producción.
+            from fakeredis import aioredis as fake_aioredis
+            self._client = fake_aioredis.FakeRedis(decode_responses=True)
+            await self._client.ping()  # valida que el fake responde
+            return
+        
+        # En producción: Redis real con pool.
         settings = get_settings()
         self._pool = ConnectionPool.from_url(
             settings.REDIS_URL,
             max_connections=settings.REDIS_POOL_MAX_CONNECTIONS,
-            decode_responses=True,  # Retorna str en vez de bytes
+            decode_responses=True,
         )
         self._client = Redis(connection_pool=self._pool)
-        # Validación fail-fast: si Redis no responde, la app no arranca
         await self._client.ping()
 
     async def disconnect(self) -> None:
@@ -45,7 +45,6 @@ class RedisClient:
 
     @property
     def client(self) -> Redis:
-        """Accede al cliente Redis. Falla explícito si no está conectado."""
         if self._client is None:
             raise RuntimeError(
                 "Redis client is not initialized. "
@@ -54,9 +53,7 @@ class RedisClient:
         return self._client
 
 
-# Instancia global única (patrón singleton controlado)
 redis_client = RedisClient()
-
 
 async def get_redis() -> Redis:
     """

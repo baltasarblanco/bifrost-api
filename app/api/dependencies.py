@@ -1,19 +1,28 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
+from redis.asyncio import Redis
+
 from app.core.security import SECRET_KEY, ALGORITHM
+from app.core.redis_client import get_redis
+from app.core.token_blacklist import is_token_revoked
 from app.schemas.token import TokenPayload
 
-# 1. Configuración del esquema OAuth2
-# Esto le dice a FastAPI en qué URL los usuarios consiguen su token.
-# Además, habilita automáticamente el botón "Authorize" en la documentación de Swagger.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/access-token")
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    redis: Redis = Depends(get_redis),
+) -> TokenPayload:
     """
     Dependencia global de seguridad.
-    Intercepta el token JWT, lo valida y extrae el usuario.
+    
+    Validaciones en orden (fail-fast):
+    1. Firma del JWT válida (con SECRET_KEY).
+    2. No expirado (claim "exp").
+    3. Tiene "sub" y "jti" en el payload.
+    4. JTI NO está en la blacklist de Redis (logout previo).
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -22,30 +31,30 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     )
 
     try:
-        # Intentamos abrir el candado usando nuestra clave secreta
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str | None = payload.get("sub")
+        jti: str | None = payload.get("jti")
 
-        if username is None:
+        if username is None or jti is None:
             raise credentials_exception
 
-        token_data = TokenPayload(sub=username)
+        token_data = TokenPayload(sub=username, jti=jti)
 
     except jwt.ExpiredSignatureError:
-        # El token es válido, pero ya pasaron los 15 minutos
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="El token ha expirado. Por favor, inicie sesión nuevamente.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.PyJWTError:
-        # El token es inválido (fue modificado, firmado con otra clave, etc.)
         raise credentials_exception
 
-    # ⚠️ TODO: En el futuro, aquí harás una consulta a la DB:
-    # user = get_user_from_db(username=token_data.sub)
-    # if not user: raise credentials_exception
-    # return user
+    # Chequeo post-firma: ¿fue revocado explícitamente?
+    if await is_token_revoked(redis, jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token revocado. Por favor, inicie sesión nuevamente.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    # Por ahora, devolvemos el payload simulando que es nuestro usuario autenticado
     return token_data

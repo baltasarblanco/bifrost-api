@@ -1,38 +1,36 @@
-from fastapi import Request
-from app.core.rate_limiter import limiter
-from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+# --- Stdlib ---
+from datetime import datetime, timedelta, timezone
 from typing import List
-from datetime import datetime, timezone
 
-from fastapi import Request
+# --- Third-party ---
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
+from redis.asyncio import Redis
+from sqlalchemy.orm import Session
+
+# --- Local ---
+from app import models, schemas
+from app.api.dependencies import get_current_user, oauth2_scheme
 from app.core.rate_limiter import limiter
-
-# Importaciones de seguridad
+from app.core.redis_client import get_redis
 from app.core.security import (
-    create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    SECRET_KEY,
+    create_access_token,
     get_password_hash,
     verify_password,
 )
-from app.schemas.token import Token, TokenPayload
-from app.api.dependencies import get_current_user
-from app import models, schemas
-
-# Importaciones de Base de Datos y Modelos
-from app.database import (
-    get_db,
-)  # <-- Asegurate de que esta ruta a tu get_db sea la correcta
+from app.core.token_blacklist import revoke_token
+from app.database import get_db
 from app.models import UsuarioDB
-from app.schemas import (
-    UsuarioCreate,
-    UsuarioResponse,
-)  # <-- Vi en tu Swagger que ya tenés estos esquemas
+from app.schemas import UsuarioCreate, UsuarioResponse
+from app.schemas.token import Token, TokenPayload
+
+
 
 router = APIRouter()
-
 
 # ==========================================
 # 1. REGISTRO DE USUARIO (El Blindaje)
@@ -94,6 +92,42 @@ def login_access_token(
     )
 
     return {"access_token": access_token, "token_type": "bearer"}
+
+# REVOCA EL TOKEN JWT ACTUAL AGREGANDOLO A LA BLACK LIST DE REDIS!!! 
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def logout(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Revoca el token JWT actual agregándolo a la blacklist de Redis.
+    
+    El token se mantiene en Redis hasta que habría expirado naturalmente.
+    Después de esto, cualquier request con este token devuelve HTTP 401.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+
+        if not jti or not exp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token malformado: falta jti o exp.",
+            )
+
+        await revoke_token(redis, jti=jti, exp_timestamp=exp)
+
+        return {"detail": "Sesión cerrada exitosamente."}
+
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido.",
+        )
 
 
 # ==========================================
