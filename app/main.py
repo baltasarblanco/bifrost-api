@@ -142,7 +142,7 @@ def registrar_armadura(armadura: Armadura, db: Session = Depends(get_db)):
 
     nueva_armadura = models.ArmaduraDB(
         modelo=armadura.modelo,
-        nivel_energia=armadura.nivel_energia,
+        estado_energia=armadura.nivel_energia,
         activa=armadura.activa,
     )
     db.add(nueva_armadura)
