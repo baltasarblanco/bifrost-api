@@ -11,8 +11,6 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 import pytest
 from fastapi.testclient import TestClient
 
-import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -65,3 +63,16 @@ def client(db_session):
         yield c
     # Al terminar los tests, limpiamos los overrides
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """
+    Resetea el storage del rate limiter antes de cada test.
+    
+    Sin esto, los contadores persisten entre tests dentro del mismo
+    pytest run, y tests que hacen múltiples logins chocan con el
+    límite de 5/minute del endpoint de login.
+    """
+    from app.core.rate_limiter import limiter
+    limiter.reset()
+    yield
