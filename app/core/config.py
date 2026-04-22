@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
 
     # --- AI ---
-    GOOGLE_API_KEY: str | None = Field(default=None)
+    GOOGLE_API_KEY: str = Field(description="Google Gemini API key")
 
     # --- Environment ---
     ENVIRONMENT: str = Field(default="development")
