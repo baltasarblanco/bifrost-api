@@ -6,6 +6,7 @@
 ![Coverage](https://img.shields.io/badge/Cobertura-90%25-success?style=flat-square&logo=pytest)
 ![RPS](https://img.shields.io/badge/RPS-1250-orange?style=flat-square&logo=locust)
 ![Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000?style=flat-square&logo=python)
+![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat-square&logo=githubactions)  <!-- nuevo badge -->
 
 </div>
 
@@ -155,3 +156,5 @@ Documentación interactiva: http://localhost:8000/docs
 💼 [LinkedIn](https://linkedin.com/in/baltasarblanco)
 
 > *Código que no se puede probar no se acepta.*
+> *⭐ Si te sirve o te inspira, dejá una estrella y seguime para ver los próximos pasos.*
+
